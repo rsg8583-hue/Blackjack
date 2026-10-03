@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blackjack</title>
+<style>
+  :root {
+    --felt: #0f5132;
+    --felt-dark: #0a3b24;
+    --card: #fdfdf8;
+    --ink: #1b1b1b;
+    --red: #c0392b;
+    --gold: #f1c40f;
+    --text: #f4f4ef;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--text);
+    background: radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-dark) 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+  }
+  h1 { margin: 0 0 8px; letter-spacing: 0.1em; font-size: 2rem; }
+  .table { width: 100%; max-width: 720px; }
+  .seat { margin: 20px 0; }
+  .seat h2 { font-size: 1rem; font-weight: 600; margin: 0 0 10px; opacity: 0.9; }
+  .seat h2 span { color: var(--gold); margin-left: 6px; }
+  .hand { display: flex; flex-wrap: wrap; gap: 10px; min-height: 120px; }
+  .card {
+    width: 80px; height: 115px;
+    background: var(--card);
+    color: var(--ink);
+    border-radius: 8px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+    position: relative;
+    font-weight: 700;
+    animation: deal 0.25s ease-out;
+  }
+  .card.red { color: var(--red); }
+  .card .rank { position: absolute; top: 6px; left: 8px; font-size: 1.1rem; }
+  .card .suit { position: absolute; inset: 0; display: grid; place-items: center; font-size: 2.4rem; }
+  .card .rank.bottom { top: auto; left: auto; bottom: 6px; right: 8px; transform: rotate(180deg); }
+  .card.back {
+    background: repeating-linear-gradient(45deg, #7b1e1e 0 6px, #9b2c2c 6px 12px);
+    border: 4px solid var(--card);
+  }
+  @keyframes deal { from { transform: translateY(-20px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .message {
+    min-height: 1.6em;
+    text-align: center;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--gold);
+    margin: 8px 0 16px;
+  }
+  .controls { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  button {
+    font: inherit; font-weight: 600;
+    padding: 10px 26px;
+    border: none; border-radius: 999px;
+    background: var(--gold); color: var(--ink);
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+  button:hover:not(:disabled) { filter: brightness(1.08); }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button.secondary { background: var(--text); }
+  footer { margin-top: auto; padding-top: 32px; font-size: 0.8rem; opacity: 0.7; }
+  footer a { color: var(--text); }
+  @media (max-width: 480px) {
+    .card { width: 62px; height: 90px; }
+    .card .suit { font-size: 1.8rem; }
+  }
+</style>
+</head>
+<body>
+  <h1>BLACKJACK</h1>
+  <div class="table">
+    <div class="seat">
+      <h2>Dealer <span id="dealer-score"></span></h2>
+      <div class="hand" id="dealer-hand"></div>
+    </div>
+    <div class="message" id="message"></div>
+    <div class="seat">
+      <h2>Player <span id="player-score"></span></h2>
+      <div class="hand" id="player-hand"></div>
+    </div>
+    <div class="controls">
+      <button id="hit">Hit</button>
+      <button id="stand">Stand</button>
+      <button id="new" class="secondary">New Game</button>
+    </div>
+  </div>
+  <footer>Web version of <a href="https://github.com/rsg8583-hue/Blackjack">blackjack.py</a></footer>
+
+<script>
+  const SUITS = ['♠', '♥', '♣', '♦'];
+  const FACES = { A: 11, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9, 10: 10, J: 10, Q: 10, K: 10 };
+
+  let deck, player, dealer, over;
+
+  const $ = id => document.getElementById(id);
+
+  function initDeck() {
+    const d = [];
+    for (const suit of SUITS)
+      for (const [face, value] of Object.entries(FACES))
+        d.push({ face, value, suit });
+    return d;
+  }
+
+  function dealCard() {
+    return deck.splice(Math.floor(Math.random() * deck.length), 1)[0];
+  }
+
+  // Aces count as 11, dropping to 1 as needed to avoid busting
+  function score(hand) {
+    let total = 0, aces = 0;
+    for (const c of hand) { total += c.value; if (c.face === 'A') aces++; }
+    while (total > 21 && aces--) total -= 10;
+    return total;
+  }
+
+  function cardEl(card, hidden) {
+    const el = document.createElement('div');
+    if (hidden) { el.className = 'card back'; return el; }
+    const red = card.suit === '♥' || card.suit === '♦';
+    el.className = 'card' + (red ? ' red' : '');
+    el.innerHTML = `<span class="rank">${card.face}</span><span class="suit">${card.suit}</span><span class="rank bottom">${card.face}</span>`;
+    return el;
+  }
+
+  function render(revealDealer) {
+    $('player-hand').replaceChildren(...player.map(c => cardEl(c, false)));
+    $('dealer-hand').replaceChildren(...dealer.map((c, i) => cardEl(c, !revealDealer && i === 1)));
+    $('player-score').textContent = score(player);
+    $('dealer-score').textContent = revealDealer ? score(dealer) : score([dealer[0]]);
+    $('hit').disabled = $('stand').disabled = over;
+  }
+
+  function finish(msg) {
+    over = true;
+    $('message').textContent = msg;
+    render(true);
+  }
+
+  function newGame() {
+    deck = initDeck();
+    player = [dealCard(), dealCard()];
+    dealer = [dealCard(), dealCard()];
+    over = false;
+    $('message').textContent = '';
+    render(false);
+    if (score(player) === 21) finish('Blackjack! Player wins!');
+  }
+
+  function hit() {
+    if (over) return;
+    player.push(dealCard());
+    const s = score(player);
+    if (s > 21) finish('Player busted! Game over.');
+    else if (s === 21) stand();
+    else render(false);
+  }
+
+  function stand() {
+    if (over) return;
+    const p = score(player);
+    if (p === 21) return finish('Player has 21 — player wins!');
+    while (score(dealer) < 17) dealer.push(dealCard());
+    const d = score(dealer);
+    if (d > 21) finish('Dealer busted! You win!');
+    else if (d === 21) finish('Dealer has 21 — player loses.');
+    else if (d === p) finish('Tie game.');
+    else if (p > d) finish('Player wins!');
+    else finish('Dealer wins.');
+  }
+
+  $('hit').onclick = hit;
+  $('stand').onclick = stand;
+  $('new').onclick = newGame;
+  newGame();
+</script>
+</body>
+</html>
