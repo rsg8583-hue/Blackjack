@@ -2,6 +2,8 @@
 
 A simple, readable, and extensible Blackjack (21) implementation in Python. This repository contains a command-line Blackjack game (and/or library) intended for learning, experimenting with game logic, and extending into GUIs or web front-ends.
 
+**Play it live:** https://blackjack-alpha-blush.vercel.app/
+
 This README provides a quick overview, how to run the game, rules implemented, development notes, testing instructions, and contribution guidance. Replace TODO placeholders with project-specific details (entrypoint filename, dependencies, screenshots) as needed.
 
 ---
